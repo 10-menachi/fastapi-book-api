@@ -45,7 +45,7 @@ jobs:
             docker-compose --version
 
             # Navigate to the project directory and deploy
-            cd /home/ubuntu/
+            cd /home/chrisdroid/
 
             # Clone repo only if it doesn't exist, else pull latest changes
             if [ ! -d "fastapi-book-api" ]; then
