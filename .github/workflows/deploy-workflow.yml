@@ -17,23 +17,27 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
+            # Set non-interactive mode to prevent installation issues
+            export DEBIAN_FRONTEND=noninteractive
+
             # Update package index and install dependencies
             sudo apt-get update -y
             sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
 
-            # Add Docker's official GPG key
-            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-            sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+            # Remove old Docker versions to prevent conflicts
+            sudo apt-get remove -y docker.io containerd runc || true
+            sudo apt-get autoremove -y
+
+            # Add Docker’s official GPG key and repository
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+            echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
             # Install Docker
             sudo apt-get update -y
             sudo apt-get install -y docker-ce docker-ce-cli containerd.io
 
-            # Add the SSH user to the Docker group
-            sudo usermod -aG docker ${{ secrets.SSH_USERNAME }}
-
-            # Install Docker Compose
-            sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+            # Install Docker Compose (latest version)
+            sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
             sudo chmod +x /usr/local/bin/docker-compose
 
             # Verify installations
@@ -42,7 +46,15 @@ jobs:
 
             # Navigate to the project directory and deploy
             cd /home/ubuntu/
-            git clone https://github.com/10-menachi/fastapi-book-api.git
+
+            # Clone repo only if it doesn't exist, else pull latest changes
+            if [ ! -d "fastapi-book-api" ]; then
+              git clone https://github.com/10-menachi/fastapi-book-api.git
+            fi
+
             cd fastapi-book-api/
-            git pull
-            docker-compose up -d --build
+            git pull origin main
+
+            # Ensure existing containers are stopped before rebuild
+            sudo docker-compose down || true
+            sudo docker-compose up -d --build
