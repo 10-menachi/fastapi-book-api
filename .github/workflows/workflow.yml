@@ -40,15 +40,16 @@ jobs:
       - name: Set Up SSH Key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.GCP_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.GCP_SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.GCP_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy to Google Cloud VM
         run: |
-          ssh ${{ secrets.GCP_USER }}@${{ secrets.GCP_HOST }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no -t ${{ secrets.GCP_USER }}@${{ secrets.GCP_HOST }} << 'EOF'
             cd /home/${{ secrets.GCP_USER }}/fastapi-app
             git pull origin main
             docker compose down
             docker build -t fastapi-app .
             docker compose up -d
+          EOF
