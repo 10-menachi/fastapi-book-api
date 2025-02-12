@@ -1,4 +1,4 @@
-name: FastAPI Book Project CI/CD
+name: FastAPI Book API CI/CD
 
 on:
   push:
@@ -37,10 +37,18 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
+      - name: Set Up SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.GCP_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.GCP_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy to Railway
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway up --service ${{ secrets.RAILWAY_SERVICE_NAME }}
+      - name: Deploy to Google Cloud VM
+        run: |
+          ssh ${{ secrets.GCP_USER }}@${{ secrets.GCP_HOST }} << 'EOF'
+            cd /home/${{ secrets.GCP_USER }}/fastapi-app
+            git pull origin main
+            docker compose down
+            docker build -t fastapi-app .
+            docker compose up -d
